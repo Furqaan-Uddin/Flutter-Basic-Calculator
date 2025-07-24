@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:math_expressions/math_expressions.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:url_launcher/url_launcher.dart'; // <-- Added for the link
+import 'package:url_launcher/url_launcher.dart';
+
+void main() => runApp(MaterialApp(home: Calculator()));
 
 class Calculator extends StatefulWidget {
   @override
@@ -37,12 +39,11 @@ class _CalculatorState extends State<Calculator> {
     '7', '8', '9', '*',
     '4', '5', '6', '-',
     '1', '2', '3', '+',
-    '0', '.', 'C', '='
+    '0', '.', 'C', '=',
   ];
 
-  // Function to open link
   Future<void> _launchFudLink() async {
-    final url = Uri.parse('https://www.linkedin.com/in/furqaan-uddin-4b61ab341?utm_source=share&utm_campaign=share_via&utm_content=profile&utm_medium=android_app'); // Replace this
+    final url = Uri.parse('https://www.linkedin.com/in/furqaan-uddin-4b61ab341');
     if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
       throw 'Could not launch $url';
     }
@@ -103,9 +104,13 @@ class _CalculatorState extends State<Calculator> {
                 Container(
                   padding: EdgeInsets.all(20),
                   alignment: Alignment.centerRight,
-                  child: Text(
-                    userinput,
-                    style: TextStyle(fontSize: 32, color: isDarkMode ? Colors.white : Colors.black),
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    reverse: true,
+                    child: Text(
+                      userinput,
+                      style: TextStyle(fontSize: 32, color: isDarkMode ? Colors.white : Colors.black),
+                    ),
                   ),
                 ),
                 Container(
@@ -235,16 +240,37 @@ class _CalculatorState extends State<Calculator> {
 
   String calculate() {
     try {
+      if (userinput.trim().isEmpty) return "0";
+
+      // Return input directly if it's a valid number
+      if (RegExp(r'^-?\d+(\.\d+)?$').hasMatch(userinput.trim())) {
+        return userinput;
+      }
+
       String expression = userinput.replaceAll('x', '*');
+
+      // ✅ Remove trailing invalid operators (like + - * / .)
+      expression = expression.replaceAll(RegExp(r'[+\-*/.]+$'), '');
+
+      // ✅ Fix repeated operators like ++, +-, etc.
       expression = expression.replaceAllMapped(
-        RegExp(r'(\d)(\()', multiLine: true),
+        RegExp(r'([+\-*/])([+\-*/])+'),
+            (match) => match[2] == '-' ? '${match[1]}-' : match[1]!,
+      );
+
+      // ✅ Add multiplication between number and opening parenthesis: 2(3+1)
+      expression = expression.replaceAllMapped(
+        RegExp(r'(\d)(\()'),
             (match) => '${match[1]}*${match[2]}',
       );
+
       var exp = Parser().parse(expression);
       var evaluation = exp.evaluate(EvaluationType.REAL, ContextModel());
+
       return evaluation.toString().replaceAll('.0', '');
     } catch (e) {
       return "Error";
     }
   }
+
 }
